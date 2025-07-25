@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "820884059824",
+    "project_id": "beacon-track-app",
+    "storage_bucket": "beacon-track-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:820884059824:android:6cc106a1ff5e8ee8236d75",
+        "android_client_info": {
+          "package_name": "com.example.beacon_track_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbwNP316SSYujTYsRKLgJbe93IlLy9M5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
