@@ -62,6 +62,8 @@ class _HomePageState extends State<HomePage> {
   final Set<String> pendingZoneHits = {};
   final Map<String, DateTime> zoneHitTimes = {};
   Map<String, Map<String, dynamic>> zoneHitData = {};
+  String? userId = "";
+  String? placeName = "";
 
   List<Map<String, dynamic>> zones = [];
 
@@ -72,10 +74,10 @@ class _HomePageState extends State<HomePage> {
     FlutterBackgroundService().on('log_beacon').listen((event) {
       if (event == null) return;
       loadZones();
+      // beaconRssi: (event['rssi'] ?? -100).toDouble(),
       checkBeaconInZones(
-        name: event['name'] ?? '',
-        serial: event['serial'] ?? '',
-        beaconRssi: (event['rssi'] ?? -100).toDouble(),
+        beaconName: event['name'] ?? '',
+        beaconId: event['beaconId'] ?? '',
         deviceLat: (event['lat'] ?? 0).toDouble(),
         deviceLng: (event['lng'] ?? 0).toDouble(),
       );
@@ -84,15 +86,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadZones() async {
-    final query = await FirebaseFirestore.instance.collection('zones').get();
+    final query = await FirebaseFirestore.instance.collection('places').get();
     zones = query.docs.map((doc) {
       final data = doc.data();
+      userId = data['userId'].toString();
+      placeName = data['name'].toString();
+
       return {
         'id': doc.id,
-        'name': data['name'],
+        'userId': data['userId'],
+        'placeName': data['name'],
         'lat': data['lat'],
         'lng': data['lng'],
-        'radius': 100.0,
+        'radius': 500.0,
       };
     }).toList();
     print('✅ โหลด zones แล้ว: ${zones.length} โซน');
@@ -113,21 +119,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> checkBeaconInZones({
-    required String name,
-    required String serial,
-    required double beaconRssi,
+    required String beaconName,
+    required String beaconId,
+    // required double beaconRssi,
     required double deviceLat,
     required double deviceLng,
   }) async {
-    serial = serial.trim();
+    beaconId = beaconId.trim();
 
     double? minDistance;
     Map<String, dynamic>? closestZone;
 
     for (var zone in zones) {
-      final double? zoneLat = zone['lat'];
-      final double? zoneLng = zone['lng'];
-      if (zoneLat == null || zoneLng == null) continue;
+      final double zoneLat = double.tryParse(zone['lat'].toString()) ?? 0.0;
+      final double zoneLng = double.tryParse(zone['lng'].toString()) ?? 0.0;
+
+      // if (zoneLat == null || zoneLng == null) continue;
 
       final distance = calculateDistance(
         deviceLat,
@@ -136,8 +143,10 @@ class _HomePageState extends State<HomePage> {
         zoneLng,
       );
 
+      print("distance : ${distance} <= ${zone['radius']} ");
       // print("Distance: ${distance}");
       if (distance <= zone['radius']) {
+        print("distance : ${distance} <= ${zone['radius']} ");
         // print("${distance} <= ${zone['radius']}");
         if (minDistance == null || distance < minDistance) {
           // print("Closest zone: ${zone}");
@@ -163,7 +172,10 @@ class _HomePageState extends State<HomePage> {
     final query = await FirebaseFirestore.instance
         .collection('beacon_zone_hits')
         .where('zoneId', isEqualTo: zoneId)
-        .where('timestamp', isGreaterThan: fiveMinutesAgo)
+        .where(
+          'timestamp',
+          isGreaterThan: fiveMinutesAgo,
+        ) // 1 minute on testing
         .orderBy('timestamp', descending: true)
         .limit(1)
         .get();
@@ -174,17 +186,26 @@ class _HomePageState extends State<HomePage> {
     }
 
     await FirebaseFirestore.instance.collection('beacon_zone_hits').add({
-      'beaconName': name,
       'zoneId': zoneId,
-      'zoneName': closestZone['name'],
-      'serial': serial,
-      'rssi': beaconRssi,
+      'userId': userId,
+      'beaconName': beaconName,
+      'placeName': placeName,
+      'beaconId': beaconId,
       'deviceLat': deviceLat,
       'deviceLng': deviceLng,
       'timestamp': timeNow,
     });
 
-    print("✅ บันทึก zone=${closestZone['name']} serial=$serial");
+    // 'zoneId': zoneId,
+    // 'userId': userId,
+    // 'beaconName': name,
+    // 'placeName': placeName,
+    // 'beaconId': beaconId,
+    // 'deviceLat': deviceLat,
+    // 'deviceLng': deviceLng,
+    // 'timestamp': timeNow,
+
+    print("✅ บันทึก zone=${closestZone['name']} beaconId=$beaconId");
   }
 
   Future<void> requestPermissions(BuildContext context) async {

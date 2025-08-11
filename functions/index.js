@@ -4,8 +4,8 @@ const axios = require("axios");
 
 admin.initializeApp();
 
-const lineAccessToken = "MVQEnXLZAPczQrtzkRBbf7N+CxCKTXkFr7/aKL76F/sGlGNds0LVYxsJ3jBp9lHS0wR4p+dO7HvuDOvJRPeemDknPMuWMaqxrMWDdSuZKLbjQg2z4lRfzcDtzi7kSk2tfcgseR7fcdHa8hWWSqzPDQdB04t89/1O/w1cDnyilFU";
-const momUserId = "U6ac3e1babfa232e29f1b5a73deb99114"; // LINE user ID แม่ที่จะแจ้งเตือน
+const lineAccessToken = "Q1Hf6RcYV0zyQJoDBdypq3P2WF+e86v39uA5TxZb9fmGgKWhERwaP5H4b/2Ilr87LLgOy4hVle0xH8WZWBlYr0HFAd73cFN5pvESyhQvyjy2gLWQUvkhbB0RCyJhMF88U1iulZH4QUllbwsfbcOwUQdB04t89/1O/w1cDnyilFU=";
+const momUserId = "Ua447dc04887c78d85ddcdcc630a4ad2a"; // LINE user ID แม่ที่จะแจ้งเตือน
 
 exports.notifyBeaconZoneHit = functions.firestore
     .document("beacon_zone_hits/{docId}")
@@ -21,23 +21,36 @@ exports.notifyBeaconZoneHit = functions.firestore
         const thaiTime = new Date(timestampMs + (7 * 60 * 60 * 1000)); // บวก 7 ชั่วโมง
         const formatted = thaiTime.toLocaleString("th-TH");
 
-        const message = `⚠️ พบอุปกรณ์ Beacon: ${beaconName} \nอยู่ในโซน: ${zoneName} เวลา: ${formatted}`;
+        const message = `Piyo! Child's registration is complete! 🎉\nKid 2 has been successfully registered in our system with ID: 3021`;
+        const mes2 = `Piyo! Child's registration is complete! 🎉\nKid 2 has been successfully registered in our system with ID: 2031`;
+        const mes3 = `Piyo! Child's registration is complete! 🎉\nKid 3 has been successfully registered in our system with ID: 3013`;
+        const mes4 = `Piyo! Piyo!\nKid1 has successfully reached school at 10:41AM.`;
+        const mes5 = `Piyo! Piyo!\nKid2 has successfully reached school at 10:47AM.`;
+        const mes6 = `Piyo! Piyo!\nKid3 has successfully reached school at 10:54AM.`;
 
         // ส่งข้อความผ่าน LINE Messaging API
         try {
-            await axios.post(
-                "https://api.line.me/v2/bot/message/push",
-                {
+            await Promise.all([
+                axios.post("https://api.line.me/v2/bot/message/push", {
                     to: momUserId,
-                    messages: [{ type: "text", text: message }],
-                },
-                {
-                    headers: {
-                        "Authorization": `Bearer ${lineAccessToken}`,
-                        "Content-Type": "application/json",
-                    },
-                },
-            );
+                    messages: [
+                        { type: "text", text: message },
+                        { type: "text", text: mes2 },
+                        { type: "text", text: mes3 },
+                        { type: "text", text: mes4 },
+                        { type: "text", text: mes5 }
+                    ],
+                }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } }),
+
+                axios.post("https://api.line.me/v2/bot/message/push", {
+                    to: momUserId,
+                    messages: [
+                        { type: "text", text: mes6 }
+                    ],
+                }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } })
+            ]);
+
+
             console.log("ส่ง LINE แจ้งเตือนสำเร็จ");
         } catch (error) {
             console.error("ส่ง LINE แจ้งเตือนล้มเหลว", error);

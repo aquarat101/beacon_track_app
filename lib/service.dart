@@ -18,8 +18,8 @@ Future<void> initializeService() async {
       initialNotificationContent: 'แอปกำลังติดตาม Beacon อยู่',
       foregroundServiceNotificationId: 888,
       foregroundServiceTypes: [
-        AndroidForegroundType.location, 
-        AndroidForegroundType.connectedDevice
+        AndroidForegroundType.location,
+        AndroidForegroundType.connectedDevice,
       ],
     ),
     iosConfiguration: IosConfiguration(
@@ -104,11 +104,11 @@ void onStart(ServiceInstance service) async {
               scannedSerials.add(serial);
 
               print("✅ พบ Hoco Tag: $serial");
+              // 'rssi': r.rssi,
 
               service.invoke('log_beacon', {
                 'name': r.advertisementData.advName,
-                'serial': serial,
-                'rssi': r.rssi,
+                'beaconId': serial,
                 'lat': position.latitude,
                 'lng': position.longitude,
               });
