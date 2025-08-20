@@ -14,41 +14,72 @@ exports.notifyBeaconZoneHit = functions.firestore
 
         if (!data) return null;
 
-        const { beaconName, uuid, major, minor, zoneName, timestamp } = data;
+        const { beaconName, beaconId, uuid, major, minor, zoneName, timestamp } = data;
 
         // เพิ่ม +7 ชั่วโมง
         const timestampMs = timestamp._seconds * 1000;
         const thaiTime = new Date(timestampMs + (7 * 60 * 60 * 1000)); // บวก 7 ชั่วโมง
-        const formatted = thaiTime.toLocaleString("th-TH");
 
-        const message = `Piyo! Child's registration is complete! 🎉\nKid 2 has been successfully registered in our system with ID: 3021`;
-        const mes2 = `Piyo! Child's registration is complete! 🎉\nKid 2 has been successfully registered in our system with ID: 2031`;
-        const mes3 = `Piyo! Child's registration is complete! 🎉\nKid 3 has been successfully registered in our system with ID: 3013`;
-        const mes4 = `Piyo! Piyo!\nKid1 has successfully reached school at 10:41AM.`;
-        const mes5 = `Piyo! Piyo!\nKid2 has successfully reached school at 10:47AM.`;
-        const mes6 = `Piyo! Piyo!\nKid3 has successfully reached school at 10:54AM.`;
+        const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
+        const dateFormatted = thaiTime.toLocaleDateString("th-TH", dateOptions);
+        
+        const timeOptions = { hour: 'numeric', minute: 'numeric', hour12: true };
+        const timeFormatted = thaiTime.toLocaleTimeString('en-US', timeOptions);
+
+        // const message = `Piyo! Piyo!\nKid1 has successfully reached school at ${timeFormatted}`;
+        // const message = `Piyo! Child's registration is complete! 🎉\nKid 2 has been successfully registered in our system with ID: 3021`;
+        // const mes2 = `Piyo! Child's registration is complete! 🎉\nKid 2 has been successfully registered in our system with ID: 2031`;
+        // const mes3 = `Piyo! Child's registration is complete! 🎉\nKid 3 has been successfully registered in our system with ID: 3013`;
+        // const mes4 = `Piyo! Piyo!\nKid1 has successfully reached school at 10:41AM.`;
+        // const mes5 = `Piyo! Piyo!\nKid2 has successfully reached school at 10:47AM.`;
+        // const mes6 = `Piyo! Piyo!\nKid3 has successfully reached school at 10:54AM.`;
 
         // ส่งข้อความผ่าน LINE Messaging API
         try {
-            await Promise.all([
-                axios.post("https://api.line.me/v2/bot/message/push", {
-                    to: momUserId,
-                    messages: [
-                        { type: "text", text: message },
-                        { type: "text", text: mes2 },
-                        { type: "text", text: mes3 },
-                        { type: "text", text: mes4 },
-                        { type: "text", text: mes5 }
-                    ],
-                }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } }),
+            // ดึงข้อมูลเด็กจาก collection 'kids' ตาม beacon uuid
+            const kidSnap = await admin.firestore().collection('kids')
+                .where('beaconId', '==', beaconId)
+                .limit(1)
+                .get();
 
-                axios.post("https://api.line.me/v2/bot/message/push", {
-                    to: momUserId,
-                    messages: [
-                        { type: "text", text: mes6 }
-                    ],
-                }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } })
-            ]);
+            if (kidSnap.empty) {
+                console.log('ไม่พบเด็กที่ตรงกับ beacon uuid นี้');
+                return null;
+            }
+
+            const kidData = kidSnap.docs[0].data();
+            const kidName = kidData.name;
+            // const momUserId = kidData.momUserId; // สมมติคุณเก็บ LINE userId ของแม่ไว้ใน document
+
+            const message = `Piyo! Piyo!\n${kidName} has successfully reached at ${dateFormatted} ${timeFormatted}`;
+
+
+            axios.post("https://api.line.me/v2/bot/message/push", {
+                to: momUserId,
+                messages: [
+                    { type: "text", text: message }
+                ],
+            }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } })
+
+            // await Promise.all([
+            //     axios.post("https://api.line.me/v2/bot/message/push", {
+            //         to: momUserId,
+            //         messages: [
+            //             { type: "text", text: message },
+            //             { type: "text", text: mes2 },
+            //             { type: "text", text: mes3 },
+            //             { type: "text", text: mes4 },
+            //             { type: "text", text: mes5 }
+            //         ],
+            //     }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } }),
+
+            //     axios.post("https://api.line.me/v2/bot/message/push", {
+            //         to: momUserId,
+            //         messages: [
+            //             { type: "text", text: mes6 }
+            //         ],
+            //     }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } })
+            // ]);
 
 
             console.log("ส่ง LINE แจ้งเตือนสำเร็จ");

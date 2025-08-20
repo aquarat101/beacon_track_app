@@ -62,8 +62,6 @@ class _HomePageState extends State<HomePage> {
   final Set<String> pendingZoneHits = {};
   final Map<String, DateTime> zoneHitTimes = {};
   Map<String, Map<String, dynamic>> zoneHitData = {};
-  String? userId = "";
-  String? placeName = "";
 
   List<Map<String, dynamic>> zones = [];
 
@@ -89,13 +87,11 @@ class _HomePageState extends State<HomePage> {
     final query = await FirebaseFirestore.instance.collection('places').get();
     zones = query.docs.map((doc) {
       final data = doc.data();
-      userId = data['userId'].toString();
-      placeName = data['name'].toString();
 
       return {
         'id': doc.id,
         'userId': data['userId'],
-        'placeName': data['name'],
+        'type': data['type'],
         'lat': data['lat'],
         'lng': data['lng'],
         'radius': 500.0,
@@ -162,6 +158,9 @@ class _HomePageState extends State<HomePage> {
     }
 
     final zoneId = closestZone['id'];
+    final userId = closestZone['userId'].toString();
+    final type = closestZone['type'].toString();
+    print(type);
 
     // ตรวจซ้ำใน Firestore (แก้เป็นเช็ค zoneId และเวลา 5(1) นาที)
     final timeNow = Timestamp.now();
@@ -184,12 +183,12 @@ class _HomePageState extends State<HomePage> {
       print('❌ ข้าม Firestore: zoneId=$zoneId มีบันทึกใน 5 นาทีที่ผ่านมา');
       return;
     }
-
+    print(type);
     await FirebaseFirestore.instance.collection('beacon_zone_hits').add({
       'zoneId': zoneId,
       'userId': userId,
       'beaconName': beaconName,
-      'placeName': placeName,
+      'type': type,
       'beaconId': beaconId,
       'deviceLat': deviceLat,
       'deviceLng': deviceLng,
@@ -199,7 +198,7 @@ class _HomePageState extends State<HomePage> {
     // 'zoneId': zoneId,
     // 'userId': userId,
     // 'beaconName': name,
-    // 'placeName': placeName,
+    // 'type': type,
     // 'beaconId': beaconId,
     // 'deviceLat': deviceLat,
     // 'deviceLng': deviceLng,

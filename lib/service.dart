@@ -3,10 +3,14 @@ import 'dart:ui';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 // import 'package:permission_handler/permission_handler.dart';
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
+  // await Firebase.initializeApp();
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
@@ -58,6 +62,7 @@ bool _isScanning = false;
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
+  await Firebase.initializeApp();
 
   service.on('stop').listen((event) async {
     print("🛑 รับคำสั่ง stop แล้ว");
@@ -88,24 +93,35 @@ void onStart(ServiceInstance service) async {
 
       FlutterBluePlus.startScan(withServices: []);
 
+      // โหลด beaconId จาก Firebase
+      final kidsSnapshot = await FirebaseFirestore.instance
+          .collection('kids')
+          .get();
+      final kidBeacons = kidsSnapshot.docs
+          .map((doc) => doc.data()['beaconId'].toString())
+          .toSet();
+
       final scannedSerials = <String>{};
       final scanSubscription = FlutterBluePlus.scanResults.listen((
         results,
       ) async {
+        // ใน loop scanResults
         for (var r in results) {
           final data = r.advertisementData;
 
-          if (data.manufacturerData.containsKey(0xFA29)) {
-            final bytes = data.manufacturerData[0xFA29]!;
-            if (bytes.length >= 19) {
-              final serial = String.fromCharCodes(bytes.sublist(3));
+          // แปลง manufacturerData ทั้งหมดเป็น String
+          for (var entry in data.manufacturerData.entries) {
+            final bytes = entry.value;
+            final serial = String.fromCharCodes(bytes.sublist(3));
 
-              if (scannedSerials.contains(serial)) continue;
-              scannedSerials.add(serial);
+            if (scannedSerials.contains(serial)) continue;
+            scannedSerials.add(serial);
 
-              print("✅ พบ Hoco Tag: $serial");
-              // 'rssi': r.rssi,
+            // print("✅ พบ Hoco Tag: $serial");
+            // 'rssi': r.rssi,
 
+            if (kidBeacons.contains(serial)) {
+              print("✅ พบ beacon ของเด็ก: $serial");
               service.invoke('log_beacon', {
                 'name': r.advertisementData.advName,
                 'beaconId': serial,
