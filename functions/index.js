@@ -22,7 +22,7 @@ exports.notifyBeaconZoneHit = functions.firestore
 
         const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
         const dateFormatted = thaiTime.toLocaleDateString("th-TH", dateOptions);
-        
+
         const timeOptions = { hour: 'numeric', minute: 'numeric', hour12: true };
         const timeFormatted = thaiTime.toLocaleTimeString('en-US', timeOptions);
 
@@ -39,7 +39,6 @@ exports.notifyBeaconZoneHit = functions.firestore
             // ดึงข้อมูลเด็กจาก collection 'kids' ตาม beacon uuid
             const kidSnap = await admin.firestore().collection('kids')
                 .where('beaconId', '==', beaconId)
-                .limit(1)
                 .get();
 
             if (kidSnap.empty) {
@@ -47,19 +46,29 @@ exports.notifyBeaconZoneHit = functions.firestore
                 return null;
             }
 
-            const kidData = kidSnap.docs[0].data();
-            const kidName = kidData.name;
-            // const momUserId = kidData.momUserId; // สมมติคุณเก็บ LINE userId ของแม่ไว้ใน document
+            const promises = [];
 
-            const message = `Piyo! Piyo!\n${kidName} has successfully reached at ${dateFormatted} ${timeFormatted}`;
+            kidSnap.forEach(doc => {
+                const kidData = doc.data();
+                const kidName = kidData.name;
+                const parentId = kidData.userId; // ถ้าคุณเก็บ userId ของแม่ไว้ใน doc
 
+                const message = `Piyo! Piyo!\n${kidName} has successfully reached at ${dateFormatted} ${timeFormatted}`;
 
-            axios.post("https://api.line.me/v2/bot/message/push", {
-                to: momUserId,
-                messages: [
-                    { type: "text", text: message }
-                ],
-            }, { headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" } })
+                promises.push(
+                    axios.post("https://api.line.me/v2/bot/message/push", {
+                        to: parentId,
+                        messages: [{ type: "text", text: message }]
+                    }, {
+                        headers: { Authorization: `Bearer ${lineAccessToken}`, "Content-Type": "application/json" }
+                    })
+                );
+
+                console.log("ส่ง LINE แจ้งเตือนสำเร็จ");
+            });
+
+            await Promise.all(promises);
+            console.log("ส่ง LINE แจ้งเตือนครบทุก user แล้ว");
 
             // await Promise.all([
             //     axios.post("https://api.line.me/v2/bot/message/push", {
@@ -82,7 +91,6 @@ exports.notifyBeaconZoneHit = functions.firestore
             // ]);
 
 
-            console.log("ส่ง LINE แจ้งเตือนสำเร็จ");
         } catch (error) {
             console.error("ส่ง LINE แจ้งเตือนล้มเหลว", error);
         }

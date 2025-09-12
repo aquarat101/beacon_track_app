@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.example.beacon_track_app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 35  
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -43,6 +43,14 @@ android {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-analytics")
+    implementation("org.altbeacon:android-beacon-library:2.21.1")
+
+     // Firestore
+    implementation("com.google.firebase:firebase-firestore-ktx:24.7.0")
+    implementation("com.google.firebase:firebase-analytics-ktx:21.3.0")
+
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
 }
 
 flutter {

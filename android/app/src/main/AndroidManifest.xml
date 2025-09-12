@@ -1,82 +1,177 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        package="com.example.beacon_track_app">
+        <!-- android:installLocation="internalOnly" -->
 
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> -->
-    <!-- <uses-permission android:name="android.permission.WAKE_LOCK" /> -->
+        <uses-permission android:name="android.permission.BLUETOOTH" />
+        <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+        <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+        <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+        <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
 
-    <application
-        android:label="Beacon track"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true"
-        android:usesCleartextTraffic="true" > 
+        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+        <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-        <meta-data 
-            android:name="com.google.android.geo.API_KEY" 
-            android:value="AIzaSyAfI8c5HYga6T0VEbCxIELta_8FGOcX67U"/>
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_TYPE_LOCATION" />
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE"/>
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+
+        <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
+        <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+        <uses-permission android:name="android.permission.WAKE_LOCK" />
+        <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+        <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+        <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+
         
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
+        <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+        <uses-permission android:name="android.permission.DISABLE_KEYGUARD" /> -->
+        <!-- <uses-permission android:name="android.permission.VIBRATE" /> -->
+
+        <!-- Android 12+ permissions -->
+        <!-- <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" /> -->
+        <!-- <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" /> -->
+
+        <!-- For apps with targetSDK 31 (Android 12) and newer -->
+        <!-- <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/> -->
+
+        <application
+            android:label="Beacon track"
+            android:name="${applicationName}"
+            android:icon="@mipmap/ic_launcher"
+            android:enableOnBackInvokedCallback="true"
+            android:usesCleartextTraffic="true" > 
+
+            <meta-data 
+                android:name="com.google.android.geo.API_KEY" 
+                android:value="AIzaSyAfI8c5HYga6T0VEbCxIELta_8FGOcX67U"/>
+            
+            <activity 
+                android:name=".MainActivity" 
+                android:exported="true" 
+                android:launchMode="singleTop" 
+                android:theme="@style/LaunchTheme" 
+                android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" 
+                android:hardwareAccelerated="true" 
+                android:windowSoftInputMode="adjustResize"> 
+                <intent-filter> 
+                    <action android:name="android.intent.action.MAIN"/> 
+                    <category android:name="android.intent.category.LAUNCHER"/> 
+                </intent-filter> 
+            </activity>
+
+            <!-- Don't delete the meta-data below.
+                This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
-              
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+                android:name="flutterEmbedding"
+                android:value="2" />
 
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
+            <uses-library 
+                android:name="org.apache.http.legacy" 
+                android:required="false"/>
 
-        <uses-library 
-            android:name="org.apache.http.legacy" 
-            android:required="false"/>
+            <service
+                android:name="id.flutter.flutter_background_service.ForegroundService"
+                android:enabled="true"
+                android:exported="true"
+                android:foregroundServiceType="location|connectedDevice|dataSync"/>
 
-        <service
-            android:name="id.flutter.flutter_background_service.BackgroundService"
-            android:exported="false"
-            android:foregroundServiceType="location|connectedDevice"
-            tools:replace="android:exported" />
+            <service
+                android:name="id.flutter.flutter_background_service.BackgroundService"
+                android:exported="true"
+                tools:replace="android:exported,android:foregroundServiceType"
+                android:permission="android.permission.BIND_JOB_SERVICE"
+                android:foregroundServiceType="location|connectedDevice|dataSync"/>
 
 
-    </application>
+            <service
+                android:name=".BeaconForegroundService"
+                android:enabled="true"
+                android:exported="true"
+                android:foregroundServiceType="location|connectedDevice|dataSync" />
 
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+            <service
+                android:name=".BeaconJobService"
+                android:permission="android.permission.BIND_JOB_SERVICE"
+                android:exported="true" />
+            
+            <receiver
+                android:name=".ScreenReceiver"
+                android:exported="true">
+                <intent-filter>
+                    <action android:name="android.intent.action.SCREEN_ON"/>
+                    <action android:name="android.intent.action.SCREEN_OFF"/>
+                </intent-filter>
+            </receiver>
+            
+            <receiver
+                android:name=".BootReceiver"
+                android:enabled="true"
+                android:exported="true">
+                <intent-filter>
+                    <action android:name="android.intent.action.BOOT_COMPLETED" />
+                    <category android:name="android.intent.category.DEFAULT" />
+                </intent-filter>
+            </receiver> 
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+            <!-- <service
+                android:name="org.altbeacon.beacon.service.BeaconService"
+                android:enabled="true"
+                android:exported="false"/> -->
 
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
-</manifest>
+            <!-- <service
+                android:name="org.altbeacon.beacon.BeaconIntentProcessor"
+                android:enabled="true"
+                android:exported="false"/> -->
+
+            <!-- <receiver
+                android:name="org.altbeacon.beacon.startup.StartupBroadcastReceiver"
+                android:enabled="true"
+                android:exported="true"
+                tools:replace="android:exported">
+                
+                <intent-filter>
+                    <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                    <action android:name="android.intent.action.ACTION_MY_PACKAGE_REPLACED"/>
+                </intent-filter>
+            </receiver> -->
+
+            <!-- <service
+                android:name=".MyBackgroundService"
+                android:exported="true"
+                android:foregroundServiceType="location|connectedDevice" /> -->
+
+
+            <!-- <receiver
+                android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+                android:exported="true"
+                android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+                <intent-filter>
+                    <action android:name="android.intent.action.BOOT_COMPLETED" />
+                    <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                    <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                </intent-filter>
+            </receiver> -->
+            
+        </application>
+
+        <!-- Required to query activities that can process text, see:
+            https://developer.android.com/training/package-visibility and
+            https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+            In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+
+        <queries>
+            <intent>
+                <action android:name="android.intent.action.PROCESS_TEXT"/>
+                <data android:mimeType="text/plain"/>
+            </intent>
+        </queries>
+    </manifest>

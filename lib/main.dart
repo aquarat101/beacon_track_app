@@ -1,26 +1,71 @@
+import 'dart:async';
 import 'dart:math';
-import 'package:beacon_track_app/list_zone_page.dart';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-// import 'package:geolocator/geolocator.dart';
-// import 'package:http/http.dart' as http;
-// import 'dart:convert';
 import 'package:permission_handler/permission_handler.dart';
-// import 'package:android_intent_plus/android_intent.dart';
-
-import 'select_zone_page.dart';
 import 'package:beacon_track_app/service.dart';
+// import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+// import 'package:wakelock_plus/wakelock_plus.dart';
+// import 'package:geolocator/geolocator.dart';
+// import 'package:disable_battery_optimization/disable_battery_optimization.dart';
 
+
+const platform = MethodChannel('beacon_service');
+
+Future<void> startBeaconService() async {
+  try {
+    await platform.invokeMethod('startScan');
+  } catch (e) {
+    print(e);
+  }
+}
+
+Future<void> stopBeaconService() async {
+  try {
+    await platform.invokeMethod('stopScan');
+  } catch (e) {
+    print(e);
+  }
+}
+
+final EventChannel _beaconChannel = EventChannel("beacon_events");
+
+void startBeaconListener() {
+  print("🟢🟢🟢 BEACON LISTENER 🟢🟢🟢");
+  _beaconChannel.receiveBroadcastStream().listen(
+    (event) {
+      print("🟢 Beacon event: $event");
+    },
+    onError: (error) {
+      print("🔴 Beacon event error: $error");
+    },
+  );
+}
+
+/// ========================
+/// Main
+/// ========================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  // await initializeService();
+  await initializeService();
+
+  // เริ่มฟัง beacon events
+  // startBeaconService();
+  // startBeaconListener();
+
   runApp(const MyApp());
+
+  // startBeaconService();
 }
 
+/// ========================
+/// Main App Widget
+/// ========================
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -28,6 +73,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Beacon Test',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -44,62 +90,94 @@ class MyApp extends StatelessWidget {
         ),
       ),
       home: const HomePage(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
 
+/// ========================
+/// Home Page
+/// ========================
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   bool scanning = false;
-  List<String> inZoneBeacons = [];
-  final Map<String, DateTime> beaconZoneLastHitTimes = {};
-  final Set<String> pendingZoneHits = {};
-  final Map<String, DateTime> zoneHitTimes = {};
-  Map<String, Map<String, dynamic>> zoneHitData = {};
-
   List<Map<String, dynamic>> zones = [];
+  final FlutterBackgroundService service = FlutterBackgroundService();
+
+  final Map<String, DateTime> beaconZoneLastHitTimes = {};
+  final Map<String, Map<String, dynamic>> zoneHitData = {};
 
   @override
   void initState() {
     super.initState();
-    loadZones();
-    FlutterBackgroundService().on('log_beacon').listen((event) {
-      if (event == null) return;
-      loadZones();
-      // beaconRssi: (event['rssi'] ?? -100).toDouble(),
-      checkBeaconInZones(
-        beaconName: event['name'] ?? '',
-        beaconId: event['beaconId'] ?? '',
-        deviceLat: (event['lat'] ?? 0).toDouble(),
-        deviceLng: (event['lng'] ?? 0).toDouble(),
+    // WakelockPlus.enable();
+    // loadZones();
+    startScan();
+  }
+
+  /// ========================
+  /// Request Permissions
+  /// ========================
+  // Future<void> requestIgnoreBatteryOptimizations() async {
+  //   await platform.invokeMethod('requestIgnoreBatteryOptimization');
+  // }
+  // Future<void> checkAndRequestBatteryOptimization() async {
+  //   bool? isDisabled =
+  //       await DisableBatteryOptimization.isBatteryOptimizationDisabled;
+  //   print("🔋 Battery optimization disabled? $isDisabled");
+
+  //   if (!isDisabled!) {
+  //     await DisableBatteryOptimization.showDisableBatteryOptimizationSettings();
+  //   }
+  // }
+
+  Future<void> requestPermissions(BuildContext context) async {
+    final permissionsToRequest = [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+      Permission.locationAlways,
+      Permission.notification,
+      Permission.ignoreBatteryOptimizations,
+    ];
+
+    final statuses = await permissionsToRequest.request();
+    bool allGranted = true;
+    for (var permission in permissionsToRequest) {
+      if (statuses[permission] != PermissionStatus.granted) {
+        allGranted = false;
+        print("❌❌❌ ${permission}");
+        break;
+      } else {
+        print("✅✅ $permission");
+      }
+    }
+
+    // checkAndRequestBatteryOptimization();
+
+    if (!allGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please, allow all permission for using this app.',
+          ),
+          action: SnackBarAction(
+            label: 'Open setting',
+            onPressed: openAppSettings,
+          ),
+        ),
       );
-      print("✅ CheckBeaconInzones");
-    });
+    }
   }
 
-  Future<void> loadZones() async {
-    final query = await FirebaseFirestore.instance.collection('places').get();
-    zones = query.docs.map((doc) {
-      final data = doc.data();
-
-      return {
-        'id': doc.id,
-        'userId': data['userId'],
-        'type': data['type'],
-        'lat': data['lat'],
-        'lng': data['lng'],
-        'radius': 500.0,
-      };
-    }).toList();
-    print('✅ โหลด zones แล้ว: ${zones.length} โซน');
-  }
-
+  /// ========================
+  /// Haversine distance
+  /// ========================
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const earthRadius = 6371000;
     final dLat = (lat2 - lat1) * pi / 180;
@@ -114,146 +192,35 @@ class _HomePageState extends State<HomePage> {
     return earthRadius * c;
   }
 
-  Future<void> checkBeaconInZones({
-    required String beaconName,
-    required String beaconId,
-    // required double beaconRssi,
-    required double deviceLat,
-    required double deviceLng,
-  }) async {
-    beaconId = beaconId.trim();
-
-    double? minDistance;
-    Map<String, dynamic>? closestZone;
-
-    for (var zone in zones) {
-      final double zoneLat = double.tryParse(zone['lat'].toString()) ?? 0.0;
-      final double zoneLng = double.tryParse(zone['lng'].toString()) ?? 0.0;
-
-      // if (zoneLat == null || zoneLng == null) continue;
-
-      final distance = calculateDistance(
-        deviceLat,
-        deviceLng,
-        zoneLat,
-        zoneLng,
-      );
-
-      print("distance : ${distance} <= ${zone['radius']} ");
-      // print("Distance: ${distance}");
-      if (distance <= zone['radius']) {
-        print("distance : ${distance} <= ${zone['radius']} ");
-        // print("${distance} <= ${zone['radius']}");
-        if (minDistance == null || distance < minDistance) {
-          // print("Closest zone: ${zone}");
-          minDistance = distance;
-          closestZone = zone;
-        }
-      }
-    }
-
-    if (closestZone == null) {
-      print("❌ ไม่พบโซนที่ใกล้พอ");
-      return;
-    }
-
-    final zoneId = closestZone['id'];
-    final userId = closestZone['userId'].toString();
-    final type = closestZone['type'].toString();
-    print(type);
-
-    // ตรวจซ้ำใน Firestore (แก้เป็นเช็ค zoneId และเวลา 5(1) นาที)
-    final timeNow = Timestamp.now();
-    final fiveMinutesAgo = Timestamp.fromMillisecondsSinceEpoch(
-      timeNow.millisecondsSinceEpoch - 1 * 60 * 1000,
-    );
-
-    final query = await FirebaseFirestore.instance
-        .collection('beacon_zone_hits')
-        .where('zoneId', isEqualTo: zoneId)
-        .where(
-          'timestamp',
-          isGreaterThan: fiveMinutesAgo,
-        ) // 1 minute on testing
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
-
-    if (query.docs.isNotEmpty) {
-      print('❌ ข้าม Firestore: zoneId=$zoneId มีบันทึกใน 5 นาทีที่ผ่านมา');
-      return;
-    }
-    print(type);
-    await FirebaseFirestore.instance.collection('beacon_zone_hits').add({
-      'zoneId': zoneId,
-      'userId': userId,
-      'beaconName': beaconName,
-      'type': type,
-      'beaconId': beaconId,
-      'deviceLat': deviceLat,
-      'deviceLng': deviceLng,
-      'timestamp': timeNow,
-    });
-
-    // 'zoneId': zoneId,
-    // 'userId': userId,
-    // 'beaconName': name,
-    // 'type': type,
-    // 'beaconId': beaconId,
-    // 'deviceLat': deviceLat,
-    // 'deviceLng': deviceLng,
-    // 'timestamp': timeNow,
-
-    print("✅ บันทึก zone=${closestZone['name']} beaconId=$beaconId");
+  /// ========================
+  /// Load zones from Firestore
+  /// ========================
+  Future<void> loadZones() async {
+    final query = await FirebaseFirestore.instance.collection('places').get();
+    zones = query.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'userId': data['userId'],
+        'type': data['type'],
+        'lat': data['lat'],
+        'lng': data['lng'],
+        'radius': 500.0,
+      };
+    }).toList();
+    print('✅ โหลด zones แล้ว: ${zones.length} โซน');
   }
 
-  Future<void> requestPermissions(BuildContext context) async {
-    // ขอ permission location, bluetooth, background location ฯลฯ
-    final permissionsToRequest = [
-      Permission.location,
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.locationAlways,
-    ];
-
-    final statuses = await permissionsToRequest.request();
-
-    // ตรวจสอบว่ามี Permission ตัวไหนบ้างที่ไม่ได้รับอนุญาต
-    bool allGranted = true;
-    for (var permission in permissionsToRequest) {
-      if (statuses[permission] != PermissionStatus.granted) {
-        allGranted = false;
-        break; // พบตัวที่ไม่ได้รับอนุญาตแล้ว ออกจาก loop
-      }
-    }
-
-    // ถ้ามี Permission ตัวใดตัวหนึ่งหรือมากกว่านั้นไม่ได้รับอนุญาต
-    if (!allGranted) {
-      // แสดง SnackBar หรือ Dialog เพื่อแจ้งผู้ใช้
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Please, allow all permission for using this app.',
-          ),
-          action: SnackBarAction(
-            label: 'Open setting',
-            onPressed: () {
-              // เปิดหน้าตั้งค่าแอป
-              openAppSettings();
-            },
-          ),
-        ),
-      );
-      // คุณอาจจะเพิ่ม Logic อื่นๆ ที่นี่ เช่น ไม่ให้ผู้ใช้เข้าถึงหน้าหลัก
-    }
-  }
-
+  /// ========================
+  /// Start Scan
+  /// ========================
   void startScan() async {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       requestPermissions(context);
     });
-    await initializeService();
-    // loadZones();
+
+    // await initializeService();
+
     var scanStatus = await Permission.bluetoothScan.request();
     var connectStatus = await Permission.bluetoothConnect.request();
     var locationStatus = await Permission.locationWhenInUse.request();
@@ -261,20 +228,25 @@ class _HomePageState extends State<HomePage> {
     if (scanStatus.isDenied ||
         connectStatus.isDenied ||
         locationStatus.isDenied) {
-      // print("Permission denied");
       return;
     }
 
-    FlutterBluePlus.startScan();
+    startBeaconListener();
+    startBeaconService();
+    // FlutterBluePlus.startScan();
     setState(() {
       scanning = true;
     });
   }
 
+  /// ========================
+  /// Stop Scan
+  /// ========================
   Future<void> stopScan() async {
-    final service = FlutterBackgroundService();
-    service.invoke('stop'); // ✅ ส่ง event 'stop' ไปยัง service
-    print("🛑 ส่งคำสั่งหยุด service แล้ว");
+    service.invoke('stop');
+    print("🛑 ส่งคำสั่งหยุด service แล้ว 🛑");
+
+    stopBeaconService();
 
     setState(() {
       scanning = false;
@@ -301,43 +273,27 @@ class _HomePageState extends State<HomePage> {
             children: [
               ElevatedButton.icon(
                 icon: Icon(
-                  scanning ? Icons.stop_circle : Icons.play_circle_fill,
+                  Icons.play_circle_fill, color: Colors.white,
+                  // scanning ? Icons.stop_circle : Icons.play_circle_fill, color: Colors.white,
                 ),
                 label: Text(
-                  scanning ? 'Stop Scan Beacon' : 'Start Scan Beacon',
+                  "Scanning beacons...",
+                  // scanning ? 'Stop Scan Beacon' : 'Start Scan Beacon',
+                  style: TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: scanning ? Colors.red : Colors.green,
                 ),
-                onPressed: scanning ? stopScan : startScan,
+                // onPressed: scanning ? stopScan : startScan,
+                onPressed: () {},
               ),
+
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.map),
-                label: const Text('Choose position in the map.'),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          const SelectZonePage(readOnly: false),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.list_alt),
-                label: const Text('List of position.'),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ZoneListPage(),
-                    ),
-                  );
-                },
-              ),
+
+              // ElevatedButton(
+              //   onPressed: requestIgnoreBatteryOptimizations,
+              //   child: const Text("ReqIgnoreBatOpt"),
+              // ),
             ],
           ),
         ),
