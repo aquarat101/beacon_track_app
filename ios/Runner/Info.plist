@@ -45,5 +45,16 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to track beacons in background</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to track beacons</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>bluetooth-central</string> <!-- สำหรับ BLE scan -->
+	</array>
+
 </dict>
 </plist>

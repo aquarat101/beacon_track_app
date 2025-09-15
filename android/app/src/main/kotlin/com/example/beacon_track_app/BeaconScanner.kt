@@ -112,6 +112,10 @@ object BeaconScanner : BeaconConsumer {
         }
     }
 
+    // Handler สำหรับ offline checker
+    private var offlineHandler: Handler? = null
+    private var offlineRunnable: Runnable? = null
+
     fun startScanning() {
         if (isScanning) return
         isScanning = true
@@ -125,6 +129,7 @@ object BeaconScanner : BeaconConsumer {
             }
         }
         startIntermittentBleScan()
+        startOfflineChecker() 
     }
 
     fun stopScanning() {
@@ -139,7 +144,29 @@ object BeaconScanner : BeaconConsumer {
             e.printStackTrace()
         }
         stopIntermittentBleScan()
+        stopOfflineChecker()
         releaseWakeLock()
+    }
+
+        // --- Offline Checker ---
+    private fun startOfflineChecker() {
+        if (offlineHandler != null) return
+        offlineHandler = Handler(Looper.getMainLooper())
+        offlineRunnable = object : Runnable {
+            override fun run() {
+                markOfflineBeacons()
+                offlineHandler?.postDelayed(this, OFFLINE_COOLDOWN)
+            }
+        }
+        offlineHandler?.post(offlineRunnable!!)
+        Log.d("BeaconScanner", "✅ Offline checker started")
+    }
+
+    private fun stopOfflineChecker() {
+        offlineHandler?.removeCallbacksAndMessages(null)
+        offlineHandler = null
+        offlineRunnable = null
+        Log.d("BeaconScanner", "✅ Offline checker stopped")
     }
 
     private fun startIntermittentBleScan() {
@@ -187,7 +214,8 @@ object BeaconScanner : BeaconConsumer {
 
     // key = beaconId, value = last seen timestamp (ms)
     private val detectedBeacons = mutableMapOf<String, Long>()
-    private val DETECT_COOLDOWN = 15_000L // 15 วินาที
+    private val lastStatusUpdate = mutableMapOf<String, Long>()
+    private val STATUS_COOLDOWN = 15_000L // 15 วินาที
 
     private val scanCallback =
             object : ScanCallback() {
@@ -205,34 +233,63 @@ object BeaconScanner : BeaconConsumer {
                         val beaconId = beaconIdBytes.toString(Charsets.US_ASCII)
 
                         val now = System.currentTimeMillis()
-                        val lastSeen = detectedBeacons[beaconId] ?: 0L
-                        if (now - lastSeen < DETECT_COOLDOWN) return // ยัง cooldown -> ข้าม
+                        val lastUpdate = lastStatusUpdate[beaconId] ?: 0L
+                        if (now - lastUpdate < STATUS_COOLDOWN) return // ยัง cooldown -> skip
 
-                        detectedBeacons[beaconId] = now // update timestamp
-
-                        Log.d("BLE Scanning", "✅ $name , $beaconId")
+                        lastStatusUpdate[beaconId] = now
+                        detectedBeacons[beaconId] = now
 
                         loadKidsBeacons { kidBeacons ->
                             if (kidBeacons.contains(beaconId)) {
-                                Log.d("BeaconScanner", "✅ Contains kid beacons: $beaconId ($name)")
-                                eventSink?.success(
-                                        mapOf(
-                                                "name" to name,
-                                                "beaconId" to beaconId,
-                                                "type" to "BLE",
-                                                "timestamp" to now
-                                        )
-                                )
-
+                                // เรียก location แค่ครั้งเดียวต่อ beacon
                                 getCurrentLocation { lat, lng ->
-                                    Log.d("Debug", "✅ Current location: $lat, $lng")
                                     updateKidStatus(beaconId, lat, lng)
                                 }
                             }
                         }
                     }
                 }
+
+                override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+                    Log.d("Debug", "onBactch Called")
+                    super.onBatchScanResults(results)
+                    // mark offline หลัง batch scan
+                    markOfflineBeacons()
+                }
+
+                override fun onScanFailed(errorCode: Int) {
+                    super.onScanFailed(errorCode)
+                    Log.e("BLE Scanner", "Scan failed: $errorCode")
+                }
             }
+
+    private val OFFLINE_COOLDOWN = 120_000L // 2 นาที
+
+    private fun markOfflineBeacons() {
+        Log.d("Debug", "Mark Offline Called")
+        val now = System.currentTimeMillis()
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("kids").whereEqualTo("status", "online").get().addOnSuccessListener { snapshot
+            ->
+            for (doc in snapshot.documents) {
+                val beaconId = doc.getString("beaconId") ?: continue
+                val lastSeen = detectedBeacons[beaconId] ?: 0L
+
+                // offline ถ้า beacon ไม่ได้ detect เกิน OFFLINE_COOLDOWN
+                if (now - lastSeen > OFFLINE_COOLDOWN) {
+                    doc.reference
+                            .update("status", "offline")
+                            .addOnSuccessListener {
+                                Log.d("BeaconScanner", "🔻 Set $beaconId to offline")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("BeaconScanner", "❌ Failed set offline: $e")
+                            }
+                }
+            }
+        }
+    }
 
     fun loadZones() {
         val db = FirebaseFirestore.getInstance()
